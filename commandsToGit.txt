@@ -1,5 +1,0 @@
-cd ~/Projects/wheat_blast
-git status
-git add .
-git commit -m "Short note of what changed"
-git push
