@@ -1,0 +1,282 @@
+---
+pagetitle: "Wheat blast simulation report"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    theme: readable
+    self_contained: true
+params:
+  results: null
+  text: null
+  risk: null
+  meta: null
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
+  fig.align = "center", fig.width = 9, fig.height = 4.5, dpi = 120)
+library(ggplot2)
+if (!exists("%||%")) `%||%` <- function(a, b) if (is.null(a)) b else a
+r <- params$results; t <- params$text; risk <- params$risk; meta <- params$meta
+L <- t$labels; cfg <- r$config; sim <- r$output; weather <- r$weather
+pheno <- r$phenology; fs <- r$forecast_summary; prm <- r$params
+pt <- identical(meta$language, "pt")
+dec <- if (pt) "," else "."
+num <- function(x, digits = 3) formatC(x, format = "f", digits = digits, decimal.mark = dec)
+fmt_limit <- function(x) gsub("\\.", dec, formatC(x, format = "g", digits = 3))
+fdate <- function(x) ifelse(is.na(x), "-", format(as.Date(x), if (pt) "%d/%m/%Y" else "%Y-%m-%d"))
+escape <- function(x) as.character(htmltools::htmlEscape(x))
+value_or_unspecified <- function(x) {
+  if (is.null(x) || !length(x) || is.na(x[1]) || !nzchar(as.character(x[1]))) t$meta$unspecified else escape(x[1])
+}
+cls <- risk$classes
+badge <- function(level) {
+  if (is.na(level)) return("-")
+  sprintf('<span class="risk" style="background:%s;color:%s">%s</span>',
+          cls$color[level], cls$text_color[level], escape(cls$label[level]))
+}
+heading <- function(key, level = 1) cat("\n\n", strrep("#", level), " ", t$h[[key]], "\n\n", sep = "")
+para <- function(text) cat(text, "\n\n")
+html_table <- function(df) {
+  cat(knitr::kable(df, format = "html", escape = FALSE, row.names = FALSE,
+                   table.attr = 'class="table table-condensed" style="width:auto"'), "\n\n")
+}
+style <- theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank())
+sim$Date <- as.Date(sim$Date)
+weather$date <- as.Date(weather$date)
+fc_start <- if (!is.null(fs)) as.Date(fs$summary$Forecast_Start_Date) else NULL
+fc_line <- if (!is.null(fc_start)) geom_vline(xintercept = as.numeric(fc_start),
+  linetype = "dashed", color = "firebrick") else NULL
+anthesis <- pheno$Date[pheno$Stage == "Anthesis"]
+anthesis_text <- if (length(anthesis)) fdate(anthesis[1]) else L$not_reached
+```
+
+```{r title, results='asis'}
+cat('<style>.risk{display:inline-block;padding:1px 9px;border-radius:10px;font-weight:600;white-space:nowrap}',
+    '.report-meta p{margin:2px 0}</style>\n')
+cat('<h1 class="title toc-ignore">', escape(t$title), '</h1>\n', sep = "")
+cat('<div class="report-meta">')
+recipients <- meta$recipients
+para(paste0("**", t$meta$recipient, ":** ", if (length(recipients))
+  paste(escape(recipients), collapse = "; ") else t$meta$unspecified))
+para(paste0("**", t$meta$author, ":** ", value_or_unspecified(meta$author)))
+para(paste0("**", t$meta$generated, ":** ", escape(format(Sys.time(), "%Y-%m-%d %H:%M %Z"))))
+cat('</div>\n\n')
+```
+
+```{r summary, results='asis'}
+heading("summary")
+para(sprintf(t$text$summary,
+  escape(cfg$location_name %||% t$meta$unspecified), fdate(cfg$start_date), fdate(max(sim$Date)),
+  num(risk$peak_value), fdate(risk$peak_date), badge(risk$peak_level),
+  fdate(risk$latest_date), num(risk$latest_value), badge(risk$latest_level),
+  anthesis_text))
+```
+
+```{r scale, results='asis'}
+heading("scale", 2)
+para(t$text$scale)
+th <- risk$thresholds
+range_text <- c(
+  paste0("0 – < ", fmt_limit(th[1])),
+  paste0(fmt_limit(th[1:4]), " – < ", fmt_limit(th[2:5])),
+  paste0("≥ ", fmt_limit(th[5])))
+scale_table <- data.frame(
+  badge_col = vapply(cls$level, badge, character(1)),
+  range_col = range_text,
+  desc_col = vapply(cls$key, function(k) escape(t$risk$desc[[k]]), character(1)),
+  first_col = fdate(risk$first_dates),
+  stringsAsFactors = FALSE)
+scale_table$first_col[is.na(risk$first_dates)] <- L$not_reached
+names(scale_table) <- c(L$class, L$range, " ", L$first_reached)
+html_table(scale_table)
+```
+
+```{r site, results='asis'}
+heading("site")
+para(sprintf(t$text$site, num(cfg$latitude, 3), num(cfg$longitude, 3),
+  escape(cfg$open_meteo_timezone %||% t$meta$unspecified), escape(cfg$weather_source %||% t$meta$unspecified)))
+src <- do.call(rbind, lapply(split(weather, weather$weather_source), function(w)
+  data.frame(a = w$weather_source[1], b = nrow(w), c = fdate(min(w$date)), d = fdate(max(w$date)))))
+names(src) <- c(L$source, L$days, L$first, L$last)
+html_table(src)
+```
+
+```{r weather-plot, fig.cap=L$temperature}
+factor_temp <- max(weather$rain, na.rm = TRUE) / max(1, abs(weather$tmax), abs(weather$tmin), na.rm = TRUE)
+if (!is.finite(factor_temp) || factor_temp <= 0) factor_temp <- 1
+print(ggplot(weather, aes(date)) +
+  geom_col(aes(y = rain), fill = "#4C90C0", alpha = .6) +
+  geom_line(aes(y = tmax * factor_temp, color = L$tmax), linewidth = .6) +
+  geom_line(aes(y = tmin * factor_temp, color = L$tmin), linewidth = .6) +
+  fc_line +
+  scale_y_continuous(L$rain, sec.axis = sec_axis(~ . / factor_temp, name = L$temperature)) +
+  scale_color_manual(values = setNames(c("#B33A3A", "#284B8C"), c(L$tmax, L$tmin))) +
+  labs(x = L$date, color = NULL) + style)
+```
+
+```{r model, results='asis'}
+heading("model")
+para(sprintf(t$text$model, value_or_unspecified(meta$cultivar),
+  if (is.null(meta$susceptibility)) t$meta$unspecified else num(meta$susceptibility, 2),
+  nrow(meta$soil_layers)))
+heading("soil", 2)
+para(t$text$soil)
+sl <- meta$soil_layers
+soil_table <- data.frame(layer = seq_len(nrow(sl)), thickness = sl$thickness,
+                         fc = num(sl$FC, 3), wp = num(sl$WP, 3))
+names(soil_table) <- c(L$layer, L$thickness, L$fc, L$wp)
+html_table(soil_table)
+```
+
+```{r soil-plot, fig.cap=L$soil}
+soil <- r$soil_water
+soil$date <- weather$date[seq_len(nrow(soil))]
+print(ggplot(soil, aes(date, topsoil_theta)) +
+  geom_line(color = "#08519C", linewidth = .9) +
+  geom_hline(yintercept = prm$topsoil_fc, linetype = "dashed", color = "#238B45") +
+  geom_hline(yintercept = prm$topsoil_wp, linetype = "dotted", color = "#CB181D") +
+  fc_line + labs(x = L$date, y = L$soil) + style)
+```
+
+```{r phenology, results='asis'}
+heading("phenology", 2)
+para(t$text$phenology)
+if (nrow(pheno)) {
+  ph <- data.frame(stage = vapply(pheno$Stage, function(s) t$stages[[s]] %||% s, character(1)),
+                   date = fdate(pheno$Date), thermal = round(pheno$TT_Threshold))
+  names(ph) <- c(L$stage, L$date, L$thermal)
+  html_table(ph)
+} else para(L$not_reached)
+```
+
+```{r thermal-plot, fig.cap=L$thermal}
+print(ggplot(sim, aes(Date, Thermal_Time)) + geom_line(color = "#284B8C", linewidth = .8) +
+  geom_vline(data = pheno, aes(xintercept = as.Date(Date)), linetype = "dashed", color = "#238B45") +
+  fc_line + labs(x = L$date, y = L$thermal) + style)
+```
+
+```{r disease, results='asis'}
+heading("disease")
+para(sprintf(t$text$disease, num(max(sim$Blast_Airborne_Spores, na.rm = TRUE), 1),
+             num(max(sim$Blast_Kernel_Spores, na.rm = TRUE), 1)))
+```
+
+```{r spores-plot, fig.cap=L$relative}
+spores <- rbind(
+  data.frame(date = sim$Date, value = sim$Blast_Airborne_Spores, variable = L$air),
+  data.frame(date = sim$Date, value = sim$Blast_Kernel_Spores, variable = L$kernels))
+print(ggplot(spores, aes(date, value, color = variable)) + geom_line(linewidth = .8) +
+  fc_line +
+  scale_color_manual(values = setNames(c("#6A3D9A", "#B2182B"), c(L$air, L$kernels))) +
+  labs(x = L$date, y = L$relative, color = NULL) + style)
+```
+
+```{r conditions, results='asis'}
+heading("conditions", 2)
+daily_sim <- sim[abs(sim$Time - round(sim$Time)) < 1e-6, , drop = FALSE]
+days_met <- sum(weather$rh_wet_hours >= prm$infection_min_wet_hours, na.rm = TRUE)
+para(sprintf(t$text$conditions, fmt_limit(prm$infection_min_wet_hours),
+  fmt_limit(cfg$rh_wet_threshold_pct %||% 90), fmt_limit(prm$leaf_Tmin),
+  fmt_limit(prm$leaf_Topt), fmt_limit(prm$leaf_Tmax), days_met, nrow(weather)))
+```
+
+```{r conditions-plot, fig.cap=L$wet_hours}
+print(ggplot(weather, aes(date)) +
+  geom_col(aes(y = rh_wet_hours, fill = L$wet_hours), alpha = .7) +
+  geom_line(data = daily_sim, aes(Date, Infection_Temp_Factor * 24, color = L$temp_response), linewidth = .8) +
+  geom_hline(yintercept = prm$infection_min_wet_hours, linetype = "dotted", color = "firebrick") +
+  fc_line +
+  scale_y_continuous(L$wet_hours, limits = c(0, 24),
+                     sec.axis = sec_axis(~ . / 24, name = L$temp_response)) +
+  scale_fill_manual(values = setNames("#4C90C0", L$wet_hours)) +
+  scale_color_manual(values = setNames("#D95F0E", L$temp_response)) +
+  labs(x = L$date, fill = NULL, color = NULL) + style)
+```
+
+```{r kernel, results='asis'}
+heading("kernel")
+para(t$text$kernel)
+```
+
+```{r kernel-plot, fig.cap=L$infection}
+ymax <- max(0.45, max(sim$Blast_Kernel_Infection, na.rm = TRUE) * 1.05)
+bands <- cls
+bands$upper[is.infinite(bands$upper)] <- ymax
+bands$upper <- pmin(bands$upper, ymax)
+bands <- bands[bands$lower < ymax, , drop = FALSE]
+print(ggplot(sim, aes(Date, Blast_Kernel_Infection)) +
+  geom_rect(data = bands, inherit.aes = FALSE,
+            aes(xmin = min(sim$Date), xmax = max(sim$Date), ymin = lower, ymax = upper, fill = label),
+            alpha = .45) +
+  geom_line(color = "#222222", linewidth = .9) +
+  fc_line +
+  scale_fill_manual(values = setNames(cls$color, cls$label), breaks = cls$label, name = L$class) +
+  scale_x_date(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, ymax)) +
+  labs(x = L$date, y = L$infection) + style)
+```
+
+```{r severity-plot, fig.cap=L$severity}
+print(ggplot(sim, aes(Date, Leaf_Disease_Severity_Pct)) +
+  geom_area(fill = "#B33A3A", alpha = .2) + geom_line(color = "#B33A3A", linewidth = .8) +
+  fc_line + labs(x = L$date, y = L$severity) + style)
+```
+
+```{r forecast, results='asis'}
+heading("forecast")
+if (is.null(fs) || is.null(risk$forecast)) {
+  para(t$text$forecast_none)
+} else {
+  f <- risk$forecast
+  para(sprintf(t$text$forecast_intro, fdate(f$start), fdate(f$end), num(f$value_start), num(f$value_end),
+               num(f$gain), f$days_conditions, num(f$max_value), badge(f$max_level)))
+  d <- fs$daily
+  block_days <- meta$block_days %||% 21L
+  para(sprintf(t$text$forecast_blocks, block_days))
+  block <- (seq_len(nrow(d)) - 1L) %/% block_days
+  rows <- lapply(split(seq_len(nrow(d)), block), function(i) {
+    x <- d[i, , drop = FALSE]
+    peak_k <- max(x$Kernel_Infection, na.rm = TRUE)
+    data.frame(
+      period = paste(fdate(min(x$Date)), "–", fdate(max(x$Date))),
+      rain = num(sum(x$Rain_mm, na.rm = TRUE), 1),
+      temp = paste(num(mean(x$Tmin, na.rm = TRUE), 1), "–", num(mean(x$Tmax, na.rm = TRUE), 1)),
+      wet = num(mean(x$RH_Wet_Hours, na.rm = TRUE), 1),
+      wet_days = paste0(sum(x$Wet_Period_Met, na.rm = TRUE), "/", nrow(x)),
+      temp_days = paste0(sum(x$Infection_Temp_Factor > 0, na.rm = TRUE), "/", nrow(x)),
+      cond_days = paste0(sum(x$Infection_Conditions_Met, na.rm = TRUE), "/", nrow(x)),
+      kernel = num(peak_k, 3),
+      cls = badge(findInterval(peak_k, risk$thresholds) + 1L),
+      stringsAsFactors = FALSE)
+  })
+  block_table <- do.call(rbind, rows)
+  names(block_table) <- c(L$period, L$rain, L$temp_range, L$mean_wet, L$wet_days, L$temp_days,
+                          L$cond_days, L$kernel_max, L$class)
+  html_table(block_table)
+  met <- d$Date[which(d$Infection_Conditions_Met %in% TRUE)]
+  para(sprintf(t$text$forecast_key_days,
+               if (length(met)) paste(fdate(met), collapse = ", ") else L$none))
+}
+```
+
+```{r interpretation, results='asis'}
+heading("interpretation")
+para(t$text$interpretation)
+para(paste0(badge(risk$peak_level), " ", escape(t$risk$advice[[cls$key[risk$peak_level]]])))
+heading("recommendations", 2)
+for (i in seq_along(t$recs)) cat(i, ". ", escape(t$recs[[i]]), "\n", sep = "")
+cat("\n")
+heading("limits")
+imputed <- if ("weather_imputed" %in% names(weather)) sum(weather$weather_imputed, na.rm = TRUE) else 0L
+para(sprintf(t$text$limits, fmt_limit(prm$infection_min_wet_hours),
+             fmt_limit(cfg$rh_wet_threshold_pct %||% 90), imputed))
+heading("conclusion")
+para(sprintf(t$text$conclusion, escape(cfg$location_name %||% t$meta$unspecified),
+             num(risk$peak_value), badge(risk$peak_level), anthesis_text))
+heading("disclaimer", 2)
+para(t$text$disclaimer)
+```

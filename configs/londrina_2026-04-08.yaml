@@ -1,0 +1,36 @@
+# Saved from the dashboard. Location and sowing date come from the file name;
+# other settings come from wheat_blast_model_config.yaml.
+location:
+  name: Londrina, Parana, Brazil
+  latitude: -23.304
+  longitude: -51.17
+  timezone: America/Sao_Paulo
+crop:
+  cultivar: Example cultivar
+  cultivar_susceptibility: 0.7
+  TT_Anthesis: 1300.0
+  TT_FlagLeaf: 1030.0
+  TT_GrainFill: 2200.0
+  TTM: 2350.0
+soil:
+  FC:
+  - 0.35
+  - 0.33
+  - 0.31
+  - 0.27
+  WP:
+  - 0.1
+  - 0.1
+  - 0.09
+  - 0.08
+  SAT:
+  - 0.4
+  - 0.38
+  - 0.36
+  - 0.32
+pathogen:
+  spike_heading_start_TT: 1150.0
+  spike_heading_peak_TT: 1300.0
+  spike_heading_end_TT: 1550.0
+  kernel_start_TT: 1400.0
+  hard_dough_TT: 2200.0

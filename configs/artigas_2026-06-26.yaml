@@ -1,0 +1,3 @@
+# Cultivar id from cultivars.yaml; add values below only to override it for this site.
+crop:
+  cultivar: example-cultivar

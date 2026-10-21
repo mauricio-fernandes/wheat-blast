@@ -1,0 +1,93 @@
+# Wheat blast forecast configuration
+# Temperatures are degrees C; rainfall is mm/day; radiation is MJ/m2/day.
+# cultivar_susceptibility: 0 = resistant, 1 = highly susceptible.
+
+location:
+  name: Passo Fundo, Rio Grande do Sul, Brazil
+  latitude: -28.262
+  longitude: -52.406
+  timezone: America/Sao_Paulo
+
+crop:
+  sowing_date: 2026-06-20
+  cultivar: Example cultivar
+  cultivar_susceptibility: 0.70
+  # Thermal-time parameters; adjust for the cultivar and local calibration.
+  TT_Anthesis: 1300
+  TT_FlagLeaf: 1030
+  TT_GrainFill: 2200
+  TTM: 2350
+
+weather:
+  # Exactly one must be true. NASA-only stops at the last fully observed day.
+  # The blended option uses NASA POWER through its last complete day, then
+  # Open-Meteo for the publication lag and in-season forecast.
+  nasa_power_only: false
+  nasa_power_open_meteo: true
+  reference_date: null       # null = today; set YYYY-MM-DD for hindcast/reproducibility
+  nasa_community: AG
+  nasa_time_standard: LST
+  # Hourly NASA POWER and Open-Meteo data are summarised to days. rh_wet_hours =
+  # hours per day with relative humidity >= the threshold below (the wet period).
+  rh_wet_threshold_pct: 90
+  open_meteo_past_days: 92
+  open_meteo_forecast_days: 16
+  csv_file: null
+
+simulation:
+  time_step: 0.1
+  make_plots: true
+  stop_at_maturity: true
+  # Start weather and disease dynamics this many days before sowing.
+  spore_dynamics_lead_days: 60
+  blast_initial_residue_inoculum: 100
+  leaf_initial_inoculum_date: null
+  leaf_initial_inoculum_size: 0
+
+alternative_host:
+  enabled: true
+  lai: 10.0
+  initial_infectious_area: 0.10
+  spore_production_multiplier: 2.0
+
+soil:
+  # Volumetric water contents for the four default layers.
+  FC: [0.35, 0.33, 0.31, 0.27]
+  WP: [0.10, 0.10, 0.09, 0.08]
+  SAT: [0.40, 0.38, 0.36, 0.32]
+
+pathogen:
+  # Heading-stage spike risk window in thermal time.
+  spike_heading_start_TT: 1150
+  spike_heading_peak_TT: 1300
+  spike_heading_end_TT: 1550
+  kernel_start_TT: 1400
+  hard_dough_TT: 2200
+  # Foliar lesion limitation.
+  leaf_max_diseased_fraction: 0.15
+  leaf_max_lesion_size: 0.002
+  leaf_infection_crowding_exponent: 2.0
+  # Infection (leaf, alternative host, spike) needs BOTH a favorable temperature
+  # and a wet period: at least infection_min_wet_hours hours per day with RH >=
+  # weather.rh_wet_threshold_pct. The temperature response is 0 at/below the
+  # minimum, 1 at the optimum and 0 at/above the maximum (daily mean temperature).
+  infection_min_wet_hours: 8
+  infection_Tmin_C: 15
+  infection_Topt_C: 28
+  infection_Tmax_C: 30
+
+report:
+  language: en               # en or pt
+  author: null
+  recipients: []             # e.g. [Name One, Name Two]
+  forecast_block_days: 21    # forecast window is summarised in periods of this many days
+  # Kernel-infection (relative units) limits between the classes
+  # None | Low | Moderate | High | Very high | Extreme. Preliminary values.
+  risk_thresholds: [0.05, 0.10, 0.20, 0.30, 0.40]
+
+# Optional direct overrides. Names must match model_params or simulation_config.
+overrides:
+  # blast_spike_susceptibility: 1.0
+  # leaf_infection_rate: 0.2
+  # leaf_spore_production_rate: 15000
+  # alternative_host_spore_production_multiplier: 2.0

@@ -1,0 +1,39 @@
+# Cultivar parameter sets, defined once and reused by name.
+# A site file selects one with   crop: { cultivar: <id> }
+# Layering: wheat_blast_model_config.yaml < this entry < the site file's own values.
+# Each entry may hold a `crop:` and a `pathogen:` block (same keys as the base config).
+# `crop.cultivar` inside an entry is the display name (defaults to the id).
+# The values below are placeholders (the base defaults / illustrative): replace them
+# with calibrated values for your cultivars.
+
+example-cultivar:
+  crop:
+    cultivar: Example cultivar
+    cultivar_susceptibility: 0.70
+    TT_FlagLeaf: 1030
+    TT_Anthesis: 1300
+    TT_GrainFill: 2200
+    TTM: 2350
+  pathogen:
+    spike_heading_start_TT: 1150
+    spike_heading_peak_TT: 1300
+    spike_heading_end_TT: 1550
+    kernel_start_TT: 1400
+    hard_dough_TT: 2200
+
+# Illustrative earlier cultivar (shorter cycle). Keep the heading window and kernel
+# timings consistent with the anthesis thermal time.
+early-example:
+  crop:
+    cultivar: Early example
+    cultivar_susceptibility: 0.50
+    TT_FlagLeaf: 950
+    TT_Anthesis: 1200
+    TT_GrainFill: 2050
+    TTM: 2200
+  pathogen:
+    spike_heading_start_TT: 1050
+    spike_heading_peak_TT: 1200
+    spike_heading_end_TT: 1450
+    kernel_start_TT: 1300
+    hard_dough_TT: 2050

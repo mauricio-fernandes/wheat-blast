@@ -1,0 +1,5 @@
+# Location and sowing date come from the file name; only differences from
+# wheat_blast_model_config.yaml are needed here.
+crop:
+  cultivar: Example cultivar
+  cultivar_susceptibility: 0.70

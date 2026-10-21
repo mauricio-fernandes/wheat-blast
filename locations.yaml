@@ -1,0 +1,30 @@
+# One entry per location slug. A site file named <slug>_<YYYY-MM-DD>.yaml takes
+# name, coordinates, time zone and (optionally) soil from here.
+# Without a soil block the defaults of wheat_blast_model_config.yaml are used.
+passo-fundo:
+  name: Passo Fundo, Rio Grande do Sul, Brazil
+  latitude: -28.262
+  longitude: -52.406
+  timezone: America/Sao_Paulo
+
+londrina:
+  name: Londrina, Parana, Brazil
+  latitude: -23.304
+  longitude: -51.170
+  timezone: America/Sao_Paulo
+  # soil:                      # add measured values when available
+  #   FC:  [0.35, 0.33, 0.31, 0.27]
+  #   WP:  [0.10, 0.10, 0.09, 0.08]
+  #   SAT: [0.40, 0.38, 0.36, 0.32]
+
+artigas:
+  name: Artigas, Uruguay
+  latitude: -30.400
+  longitude: -56.470
+  timezone: America/Montevideo
+
+treinta-y-tres:
+  name: Treinta y Tres, Uruguay
+  latitude: -33.233
+  longitude: -54.383
+  timezone: America/Montevideo
